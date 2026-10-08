@@ -1,0 +1,13 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  test-and-eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install -r backend/requirements.txt
+      - run: pytest tests/
+      # Full evaluation needs Qdrant/Postgres running — add service containers
+      # here once you have a CI-safe golden dataset with sample PDFs checked in.

@@ -1,0 +1,62 @@
+[
+  {
+    "doc_id": "invoice_001",
+    "gold_fields": {
+      "invoice_number": "INV-2026-0143",
+      "invoice_date": "March 3, 2026",
+      "vendor_name": "Acme Supplies Ltd.",
+      "due_date": "March 31, 2026",
+      "subtotal": "4200.00",
+      "tax": "336.00",
+      "total": "4536.00"
+    }
+  },
+  {
+    "doc_id": "invoice_002",
+    "gold_fields": {
+      "invoice_number": "INV-2026-0158",
+      "invoice_date": "April 10, 2026",
+      "vendor_name": "BlueLeaf Consulting",
+      "due_date": "May 10, 2026",
+      "subtotal": "3500.00",
+      "tax": "280.00",
+      "total": "3780.00"
+    }
+  },
+  {
+    "doc_id": "invoice_003",
+    "gold_fields": {
+      "invoice_number": "INV-2026-0171",
+      "invoice_date": "May 2, 2026",
+      "vendor_name": "Nova Print Works",
+      "due_date": "May 30, 2026",
+      "subtotal": "1500.00",
+      "tax": "120.00",
+      "total": "1620.00"
+    }
+  },
+  {
+    "doc_id": "invoice_004",
+    "gold_fields": {
+      "invoice_number": "INV-2026-0189",
+      "invoice_date": "June 18, 2026",
+      "vendor_name": "Summit Logistics Inc.",
+      "due_date": "July 18, 2026",
+      "subtotal": "2250.00",
+      "tax": "180.00",
+      "total": "2430.00"
+    }
+  },
+  {
+    "doc_id": "invoice_005",
+    "gold_fields": {
+      "invoice_number": "INV-2026-0204",
+      "invoice_date": "July 7, 2026",
+      "vendor_name": "Greenfield Landscaping",
+      "due_date": "August 6, 2026",
+      "subtotal": "1020.00",
+      "tax": "81.60",
+      "total": "1101.60"
+    }
+  }
+]

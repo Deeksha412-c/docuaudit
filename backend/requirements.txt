@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+langgraph
+sentence-transformers
+transformers
+torch
+qdrant-client
+sqlalchemy
+psycopg2-binary
+celery
+redis
+pydantic-settings
+python-multipart
+pytest
+httpx
+streamlit
