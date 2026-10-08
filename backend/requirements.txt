@@ -14,3 +14,14 @@ python-multipart
 pytest
 httpx
 streamlit
+
+
+celery==5.6.3
+fastapi==0.141.1
+langgraph==1.2.12
+pymupdf==1.28.2
+qdrant-client==1.19.1
+sentence-transformers==6.1.0
+SQLAlchemy==2.1.0
+torch==2.14.0
+transformers==5.17.0
