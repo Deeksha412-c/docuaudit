@@ -20,7 +20,21 @@ def extraction_node(state: InvoiceState):
 
 def compliance_node(state: InvoiceState):
     from app.agents.compliance import scan_invoice_compliance
-    return {"compliance": scan_invoice_compliance(state["source_text"], state["fields"], seen_invoice_numbers=set())}
+    from app.db.session import SessionLocal
+    from app.db.queries import previously_seen_invoice_numbers
+
+    try:
+        db = SessionLocal()
+        try:
+            seen = previously_seen_invoice_numbers(db, state["doc_id"], state["fields"])
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"Warning: duplicate lookup skipped ({e})")
+        seen = set()
+
+    return {"compliance": scan_invoice_compliance(
+        state["source_text"], state["fields"], seen_invoice_numbers=seen)}
 
 def audit_node(state: InvoiceState):
     from app.agents.auditor import audit_fields

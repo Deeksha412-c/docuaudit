@@ -40,7 +40,7 @@
 
 # | Extraction | Fills a fixed invoice schema using extractive QA (RoBERTa-SQuAD2) |
 
-# | Compliance | PII detection (BERT-NER) plus rules: totals must reconcile, amount threshold, duplicate numbers |
+# | Compliance | PII detection (BERT-NER) plus rules: totals must reconcile, amount threshold, and duplicate invoice numbers (same vendor, checked against previously processed invoices in PostgreSQL) |
 
 # | Auditor | Checks each field against its source line with an NLI model (DeBERTa); unsupported fields are flagged |
 
@@ -124,19 +124,16 @@
 
 # \- \*\*Deliberate scope.\*\* Native-text invoices only. OCR, table QA and layout-aware retrieval were left out on purpose; they matter for scanned documents.
 
-# 
-
-# \## Limitations and roadmap
+# \- \*\**Duplicates are keyed on vendor plus invoice number.** Different vendors can reuse the same number, so the number alone would give false alarms.
 
 # 
 
-# \- The evaluation set is small and synthetic; harder layouts and label variations are next.
+## Limitations and roadmap
 
-# \- Duplicate-invoice detection is implemented in the compliance rules but not yet wired to the database.
-
-# \- The auditor flags unsupported fields but does not yet retry extraction or route them to a review queue.
-
-# \- Retrieval is trivial for one-page invoices; it matters more for longer documents.
+- The evaluation set is small and synthetic; harder layouts and label variations are next.
+- The duplicate lookup scans stored results in Python, which is fine at this scale. At larger volumes it should become an indexed database query.
+- The auditor flags unsupported fields but does not yet retry extraction or route them to a review queue.
+- Retrieval is trivial for one-page invoices; it matters more for longer documents.
 
 # 
 

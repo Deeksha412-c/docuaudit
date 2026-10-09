@@ -14,8 +14,8 @@ def scan_invoice_compliance(text: str, fields: dict, seen_invoice_numbers: set[s
     pii = [e for e in entities if e["entity_group"] in ("PER", "LOC")]
 
     flags = []
-    inv_num = fields.get("invoice_number")
-    if inv_num in seen_invoice_numbers:
+    inv_num = str(fields.get("invoice_number", "")).strip().lower()
+    if inv_num and inv_num in {s.strip().lower() for s in seen_invoice_numbers}:
         flags.append("duplicate_invoice_number")
 
     try:
