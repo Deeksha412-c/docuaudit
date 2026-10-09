@@ -24,7 +24,7 @@ def process_document(doc_id: str, pdf_path: str):
                                flags=result["compliance"]["flags"], risk_level=result["compliance"]["risk_level"]))
         db.add(AuditLog(doc_id=doc_id, per_field=result["audit"]["per_field"],
                          faithfulness_rate=result["audit"]["faithfulness_rate"], model_versions={}))
-        doc.status = DocStatus.complete
+        doc.status = DocStatus.needs_review if result.get("needs_review") else DocStatus.complete
     except Exception as e:
         doc.status = DocStatus.failed
         print(f"Pipeline failed for {doc_id}: {e}")

@@ -48,3 +48,8 @@ def test_failed_documents_are_ignored(db):
 def test_missing_vendor_returns_empty(db):
     add_doc(db, "a", {"invoice_number": "INV-1", "vendor_name": "Acme"})
     assert previously_seen_invoice_numbers(db, "b", {"vendor_name": ""}) == set()
+
+
+def test_documents_waiting_for_review_still_count(db):
+    add_doc(db, "a", {"invoice_number": "INV-1", "vendor_name": "Acme"}, status=DocStatus.needs_review)
+    assert "INV-1" in previously_seen_invoice_numbers(db, "b", {"vendor_name": "Acme"})

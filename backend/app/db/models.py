@@ -8,6 +8,7 @@ class DocStatus(str, enum.Enum):
     pending = "pending"
     processing = "processing"
     complete = "complete"
+    needs_review = "needs_review"
     failed = "failed"
 
 class Document(Base):

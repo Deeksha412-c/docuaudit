@@ -42,7 +42,7 @@
 
 # | Compliance | PII detection (BERT-NER) plus rules: totals must reconcile, amount threshold, and duplicate invoice numbers (same vendor, checked against previously processed invoices in PostgreSQL) |
 
-# | Auditor | Checks each field against its source line with an NLI model (DeBERTa); unsupported fields are flagged |
+# | Auditor | Checks each field against its source line with an NLI model (DeBERTa); unsupported fields are flagged | "Unsupported fields get one repair attempt (alternative questions, focused lines). Anything still unverified sends the document to needs_review."
 
 # 
 
@@ -104,7 +104,7 @@
 
 # | POST | `/documents` | Upload a PDF; returns `doc\_id` and status `pending` |
 
-# | GET | `/documents/{doc\_id}` | Status, extracted fields, compliance flags, per-field audit with evidence |
+# | GET | `/documents/{doc\_id}` | Status, extracted fields, compliance flags, per-field audit with evidence | the status is one of pending, processing, complete, needs_review or failed.
 
 # | GET | `/documents` | List all documents |
 
@@ -132,7 +132,7 @@
 
 - The evaluation set is small and synthetic; harder layouts and label variations are next.
 - The duplicate lookup scans stored results in Python, which is fine at this scale. At larger volumes it should become an indexed database query.
-- The auditor flags unsupported fields but does not yet retry extraction or route them to a review queue.
+- The review queue is a list. There's no way yet to correct a field and approve a document.
 - Retrieval is trivial for one-page invoices; it matters more for longer documents.
 
 # 

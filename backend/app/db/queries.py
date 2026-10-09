@@ -16,7 +16,7 @@ def previously_seen_invoice_numbers(db: Session, doc_id: str, fields: dict) -> s
         db.query(ExtractionResult)
         .join(Document, Document.id == ExtractionResult.doc_id)
         .filter(ExtractionResult.doc_id != doc_id)
-        .filter(Document.status == DocStatus.complete)
+        .filter(Document.status.in_([DocStatus.complete, DocStatus.needs_review]))
         .all()
     )
 
