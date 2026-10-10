@@ -44,25 +44,27 @@
 
 # | Auditor | Checks each field against its source line with an NLI model (DeBERTa); unsupported fields are flagged | "Unsupported fields get one repair attempt (alternative questions, focused lines). Anything still unverified sends the document to needs_review."
 
-# 
+ 
 
-# Uploads return immediately with a `doc\_id`. Processing runs in a background worker, and the client polls for the result.
+#Uploads return immediately with a `doc\_id`. Processing runs in a background worker, and the client polls for the result.
 
-# 
 
-# \## Results
 
-# 
+## Results
 
-# | Metric | Score |
+Evaluated on 17 hand-labelled invoices: varied label wording and date formats, two-column layouts, two invoices with no due date, and two compliance cases.
 
-# |---|---|
+| Metric | First run | After auditor fixes |
+|---|---|---|
+| Field F1 | 0.903 | 1.000 |
+| Verified precision (verified values that were correct) | 0.877 | 1.000 |
+| Faithfulness (fields auto-verified) | 0.957 | 0.957 |
+| Compliance flag accuracy | 0.882 | 1.000 |
+| Missing fields correctly refused | 0 of 2 | 2 of 2 |
 
-# | Field F1 (7 fields) | 1.00 |
+The first run showed the auditor verifying 14 wrong values (labels extracted as values, an amount accepted as a date, an invoice date accepted as a due date). I added type and label checks ahead of the language-model check, and the regression gate now fails if any wrong value is verified.
 
-# | Faithfulness rate | 1.00 |
-
-# 
+These fixes were made after seeing these invoices, so this is a development-set result, not a measure of generalization.
 
 # Measured on a small synthetic set of 5 invoices that share one layout. Treat this as a regression baseline, not a claim about real-world accuracy. The evaluation harness fails the build if F1 drops below 0.80 or faithfulness below 0.85.
 
@@ -134,6 +136,9 @@
 - The duplicate lookup scans stored results in Python, which is fine at this scale. At larger volumes it should become an indexed database query.
 - The review queue is a list. There's no way yet to correct a field and approve a document.
 - Retrieval is trivial for one-page invoices; it matters more for longer documents.
+- About 4% of correct values (5 of 117) are not auto-verified and go to review.
+- The label check assumes labelled fields; a vendor printed as an unlabelled heading goes to review.
+- The next step is a held-out set the code has never seen.
 
 # 
 

@@ -58,5 +58,155 @@
       "tax": "81.60",
       "total": "1101.60"
     }
+  },
+  {
+    "doc_id": "invoice_006",
+    "gold_fields": {
+      "invoice_number": "INV-8841",
+      "invoice_date": "14 March 2026",
+      "vendor_name": "Crescent Foods Pvt Ltd",
+      "due_date": "13 April 2026",
+      "subtotal": "$7,350.00",
+      "tax": "$588.00",
+      "total": "$7,938.00"
+    }
+  },
+  {
+    "doc_id": "invoice_007",
+    "gold_fields": {
+      "invoice_number": "2026/0457",
+      "invoice_date": "2026-04-02",
+      "vendor_name": "Lakeside Dental Supplies",
+      "due_date": "2026-05-02",
+      "subtotal": "$860.50",
+      "tax": "$68.84",
+      "total": "$929.34"
+    }
+  },
+  {
+    "doc_id": "invoice_008",
+    "gold_fields": {
+      "invoice_number": "BR-5520",
+      "invoice_date": "Feb 9, 2026",
+      "vendor_name": "Brightwave Media",
+      "due_date": "",
+      "subtotal": "$3,200.00",
+      "tax": "$256.00",
+      "total": "$3,456.00"
+    }
+  },
+  {
+    "doc_id": "invoice_009",
+    "gold_fields": {
+      "invoice_number": "QT-0034",
+      "invoice_date": "March 18, 2026",
+      "vendor_name": "Quill & Thread Studio",
+      "due_date": "",
+      "subtotal": "$1,150.00",
+      "tax": "$92.00",
+      "total": "$1,242.00"
+    }
+  },
+  {
+    "doc_id": "invoice_010",
+    "gold_fields": {
+      "invoice_number": "PX-2026-077",
+      "invoice_date": "June 3, 2026",
+      "vendor_name": "Pioneer Heavy Equipment",
+      "due_date": "July 3, 2026",
+      "subtotal": "$11,500.00",
+      "tax": "$920.00",
+      "total": "$12,420.00"
+    },
+    "expected_flags": [
+      "amount_over_policy_threshold"
+    ]
+  },
+  {
+    "doc_id": "invoice_011",
+    "gold_fields": {
+      "invoice_number": "KT-3310",
+      "invoice_date": "May 21, 2026",
+      "vendor_name": "Kestrel Tools",
+      "due_date": "June 20, 2026",
+      "subtotal": "$1,000.00",
+      "tax": "$80.00",
+      "total": "$1,180.00"
+    },
+    "expected_flags": [
+      "total_does_not_match_subtotal_plus_tax"
+    ]
+  },
+  {
+    "doc_id": "invoice_012",
+    "gold_fields": {
+      "invoice_number": "A-19",
+      "invoice_date": "January 5, 2026",
+      "vendor_name": "Maple Street Bakery",
+      "due_date": "January 19, 2026",
+      "subtotal": "$92.00",
+      "tax": "$7.36",
+      "total": "$99.36"
+    }
+  },
+  {
+    "doc_id": "invoice_013",
+    "gold_fields": {
+      "invoice_number": "HGP-2026-0912",
+      "invoice_date": "07/15/2026",
+      "vendor_name": "Hartwell, Greene & Partners LLP",
+      "due_date": "08/14/2026",
+      "subtotal": "$5,400.00",
+      "tax": "$432.00",
+      "total": "$5,832.00"
+    }
+  },
+  {
+    "doc_id": "invoice_014",
+    "gold_fields": {
+      "invoice_number": "ST-2026-6001",
+      "invoice_date": "August 1, 2026",
+      "vendor_name": "Sterling Office Interiors",
+      "due_date": "August 31, 2026",
+      "subtotal": "$1,240.00",
+      "tax": "$99.20",
+      "total": "$1,339.20"
+    }
+  },
+  {
+    "doc_id": "invoice_015",
+    "gold_fields": {
+      "invoice_number": "INV-4410",
+      "invoice_date": "April 22, 2026",
+      "vendor_name": "Delta Courier Services",
+      "due_date": "May 22, 2026",
+      "subtotal": "$640.00",
+      "tax": "$51.20",
+      "total": "$691.20"
+    }
+  },
+  {
+    "doc_id": "invoice_016",
+    "gold_fields": {
+      "invoice_number": "2026-118",
+      "invoice_date": "March 30, 2026",
+      "vendor_name": "Redwood Print Co.",
+      "due_date": "April 29, 2026",
+      "subtotal": "$2,150.00",
+      "tax": "$172.00",
+      "total": "$2,322.00"
+    }
+  },
+  {
+    "doc_id": "invoice_017",
+    "gold_fields": {
+      "invoice_number": "INV-0099",
+      "invoice_date": "May 6, 2026",
+      "vendor_name": "Atlas Cargo Ltd",
+      "due_date": "June 5, 2026",
+      "subtotal": "$4,780.00",
+      "tax": "$382.40",
+      "total": "$5,162.40"
+    }
   }
 ]

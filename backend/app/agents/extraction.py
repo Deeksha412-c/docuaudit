@@ -1,5 +1,6 @@
 from transformers import AutoTokenizer, AutoModelForQuestionAnswering
 import torch
+from app.agents.checks import snap_to_line
 
 _tokenizer = None
 _model = None
@@ -28,7 +29,7 @@ FIELD_QUESTIONS = {
 # Words that mark the lines where each field usually lives.
 FIELD_KEYWORDS = {
     "invoice_number": ["invoice number", "invoice no", "invoice #", "invoice id", "reference"],
-    "invoice_date":   ["invoice date", "bill date", "date of issue", "issued", "dated"],
+    "invoice_date":   ["invoice date", "bill date", "date of issue", "issued", "dated", "date"],
     "vendor_name":    ["vendor", "seller", "supplier", "billed by", "from"],
     "due_date":       ["due", "pay by", "payable by"],
     "subtotal":       ["subtotal", "sub total", "sub-total", "before tax"],
@@ -69,7 +70,8 @@ def extract_invoice_fields(source_text: str) -> dict:
     results = {}
     for field, questions in FIELD_QUESTIONS.items():
         try:
-            results[field] = _answer_question(tokenizer, model, questions[0], source_text)
+            value = _answer_question(tokenizer, model, questions[0], source_text)
+            results[field] = snap_to_line(value, source_text)
         except Exception:
             results[field] = ""
     return results
@@ -78,21 +80,35 @@ def extract_invoice_fields(source_text: str) -> dict:
 def candidate_values(field: str, source_text: str, exclude: str = "") -> list[str]:
     """Alternative answers for one field, used when the first answer failed verification.
 
-    Lines that mention the field's keywords are tried first (a small, precise context),
-    then the whole invoice, with each alternative phrasing of the question.
+    1. Layout candidates: on a line that mentions the field, the value is either after the
+       colon ("Due on: 2026-05-02") or, in a two-column layout, on the next line.
+    2. Model candidates: the QA model on the focused lines, then on the whole invoice,
+       with each alternative phrasing of the question.
     """
-    tokenizer, model = _get_qa()
     keywords = FIELD_KEYWORDS.get(field, [])
     lines = [l.strip() for l in source_text.split("\n") if l.strip()]
     focused = [l for l in lines if any(k in l.lower() for k in keywords)]
 
     candidates = []
+
+    def add(value):
+        value = (value or "").strip()
+        if value and value != exclude and value not in candidates:
+            candidates.append(value)
+
+    for i, line in enumerate(lines):
+        if not any(k in line.lower() for k in keywords):
+            continue
+        if ":" in line:
+            add(line.split(":", 1)[1])
+        elif i + 1 < len(lines):
+            add(lines[i + 1])
+
+    tokenizer, model = _get_qa()
     for question in FIELD_QUESTIONS[field]:
         for context in focused + [source_text]:
             try:
-                value = _answer_question(tokenizer, model, question, context).strip()
+                add(snap_to_line(_answer_question(tokenizer, model, question, context), source_text))
             except Exception:
                 continue
-            if value and value != exclude and value not in candidates:
-                candidates.append(value)
     return candidates
