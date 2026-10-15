@@ -1,0 +1,125 @@
+[
+  {
+    "doc_id": "heldout_01",
+    "gold_fields": {
+      "invoice_number": "TX-77310",
+      "invoice_date": "April 9, 2026",
+      "vendor_name": "Orchard Valley Farms",
+      "due_date": "May 9, 2026",
+      "subtotal": "$3,200.00",
+      "tax": "$256.00",
+      "total": "$3,456.00"
+    }
+  },
+  {
+    "doc_id": "heldout_02",
+    "gold_fields": {
+      "invoice_number": "DOC-5521",
+      "invoice_date": "June 12, 2026",
+      "vendor_name": "Harbor Lane Printing",
+      "due_date": "July 12, 2026",
+      "subtotal": "$1,200.00",
+      "tax": "$96.00",
+      "total": "$1,296.00"
+    }
+  },
+  {
+    "doc_id": "heldout_03",
+    "gold_fields": {
+      "invoice_number": "SR-2026-0614",
+      "invoice_date": "31.03.2026",
+      "vendor_name": "Stonebridge Repairs",
+      "due_date": "30.04.2026",
+      "subtotal": "$1,350.00",
+      "tax": "$108.00",
+      "total": "$1,458.00"
+    }
+  },
+  {
+    "doc_id": "heldout_04",
+    "gold_fields": {
+      "invoice_number": "AR/2026/0381",
+      "invoice_date": "May 20, 2026",
+      "vendor_name": "Anand Rao Fabricators Pvt Ltd",
+      "due_date": "June 19, 2026",
+      "subtotal": "1,25,000.00",
+      "tax": "22,500.00",
+      "total": "1,47,500.00"
+    },
+    "expected_flags": [
+      "amount_over_policy_threshold"
+    ]
+  },
+  {
+    "doc_id": "heldout_05",
+    "gold_fields": {
+      "invoice_number": "LM-0912",
+      "invoice_date": "August 3, 2026",
+      "vendor_name": "Lumen Design Studio",
+      "due_date": "",
+      "subtotal": "$2,750.00",
+      "tax": "$220.00",
+      "total": "$2,970.00"
+    }
+  },
+  {
+    "doc_id": "heldout_06",
+    "gold_fields": {
+      "invoice_number": "MS-2026-114",
+      "invoice_date": "September 2, 2026",
+      "vendor_name": "Mehta & Sons (Pvt) Ltd",
+      "due_date": "October 2, 2026",
+      "subtotal": "$2,500.00",
+      "tax": "$200.00",
+      "total": "$2,700.00"
+    }
+  },
+  {
+    "doc_id": "heldout_07",
+    "gold_fields": {
+      "invoice_number": "GH-4471",
+      "invoice_date": "July 22, 2026",
+      "vendor_name": "Greenhill Catering",
+      "due_date": "August 21, 2026",
+      "subtotal": "$1,000.00",
+      "tax": "$80.00",
+      "total": "$1,080.00"
+    }
+  },
+  {
+    "doc_id": "heldout_08",
+    "gold_fields": {
+      "invoice_number": "NB-20260314",
+      "invoice_date": "14-Mar-2026",
+      "vendor_name": "Northbank Couriers",
+      "due_date": "13-Apr-2026",
+      "subtotal": "$1,250.00",
+      "tax": "$100.00",
+      "total": "$1,350.00"
+    }
+  },
+  {
+    "doc_id": "heldout_09",
+    "gold_fields": {
+      "invoice_number": "PQ-8820",
+      "invoice_date": "October 1, 2026",
+      "vendor_name": "Pinnacle Equipment Leasing",
+      "due_date": "October 31, 2026",
+      "subtotal": "$2,100.00",
+      "tax": "$168.00",
+      "total": "$2,268.00"
+    }
+  },
+  {
+    "doc_id": "heldout_10",
+    "gold_fields": {
+      "invoice_number": "CT-3309",
+      "invoice_date": "November 5, 2026",
+      "vendor_name": "Cedar & Thorne Architects",
+      "due_date": "December 5, 2026",
+      "subtotal": "$5,500.00",
+      "tax": "$440.00",
+      "total": "$5,940.00"
+    }
+  }
+]

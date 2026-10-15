@@ -6,15 +6,17 @@ sys.path.append(HERE)
 
 from metrics import score_results
 
-GOLDEN = os.path.join(HERE, "golden_dataset", "golden.json")
-INVOICES = os.path.join(HERE, "golden_dataset", "invoices")
+# python run_eval.py           -> development set (golden_dataset), with the regression gate
+# python run_eval.py heldout   -> held-out set: a measurement only, no gate. Never tune on it.
+DATASET = sys.argv[1] if len(sys.argv) > 1 else "golden_dataset"
+GOLDEN = os.path.join(HERE, DATASET, "golden.json")
+INVOICES = os.path.join(HERE, DATASET, "invoices")
 
-# Minimum acceptable scores. After your first run on the harder set, look at the mistakes,
-# then set each value just below what you measured, so any later drop fails the build.
+# Minimum acceptable scores on the development set. A single wrong verified value fails the build.
 BASELINE = {
     "field_f1": 0.95,
     "faithfulness": 0.92,
-    "verified_precision": 1.0,     # safety metric: one wrong verified value should fail the build
+    "verified_precision": 1.0,
     "flag_accuracy": 0.95,
     "absent_fields_flagged": 1.0,
 }
@@ -43,11 +45,23 @@ def run():
     with open(GOLDEN) as f:
         golden = json.load(f)
 
-    report = score_results(golden, predict_all(golden))
+    predictions = predict_all(golden)
+    report = score_results(golden, predictions)
     summary = report["summary"]
+    to_review = sum(1 for p in predictions.values() if p.get("needs_review"))
 
-    print("\nPer-field F1:", report["per_field"])
+    print(f"\nDataset: {DATASET} ({len(golden)} invoices)")
+    print("Per-field F1:", report["per_field"])
     print("Scorecard:", json.dumps(summary, indent=2))
+    print(f"Invoices sent to review: {to_review} of {len(golden)}")
+
+    unverified = [(doc_id, f, r) for doc_id, p in predictions.items()
+                  for f, r in p["audit"]["per_field"].items() if not r["supported"]]
+    if unverified:
+        print(f"\nNot auto-verified ({len(unverified)}):")
+        for doc_id, f, r in unverified:
+            why = r.get("reason") or f"language model not convinced (confidence {r.get('confidence')})"
+            print(f"  {doc_id}  {f}: {predictions[doc_id]['fields'].get(f)!r} -> {why}")
 
     if report["mistakes"]:
         print(f"\nMistakes ({len(report['mistakes'])}):")
@@ -57,6 +71,10 @@ def run():
             else:
                 note = "   <-- VERIFIED BUT WRONG" if m["verified"] else "   (caught by the auditor)"
             print(f"  {m['doc_id']}  {m['field']}: expected {m['gold']!r}, got {m['predicted']!r}{note}")
+
+    if DATASET != "golden_dataset":
+        print("\nThis is a measurement, so the regression gate is not applied.")
+        return
 
     failed = [k for k, v in BASELINE.items() if summary.get(k, 1.0) < v]
     if failed:
