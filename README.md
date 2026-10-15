@@ -171,3 +171,6 @@ frontend/         Streamlit UI
 tests/            unit tests
 docker-compose.yml
 ```
+
+![A verified invoice](docs/ui-verified.jpeg)
+![An invoice sent to review](docs/ui-needs-review.jpeg)
