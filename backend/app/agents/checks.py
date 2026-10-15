@@ -8,24 +8,49 @@ MONTH = (r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul
          r"aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)")
 
 DATE_PATTERNS = [
-    rf"\d{{1,2}}\s+{MONTH}\.?,?\s+\d{{4}}",                      # 14 March 2026
-    rf"{MONTH}\.?\s+\d{{1,2}}(?:st|nd|rd|th)?,?\s+\d{{4}}",      # March 14, 2026
-    r"\d{4}[-/.]\d{1,2}[-/.]\d{1,2}",                             # 2026-03-14
-    r"\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}",                           # 03/14/2026
+    rf"\d{{1,2}}(?:st|nd|rd|th)?\s+{MONTH}\.?,?\s+\d{{4}}",       # 14 March 2026, 14th March 2026
+    rf"{MONTH}\.?\s+\d{{1,2}}(?:st|nd|rd|th)?,?\s+\d{{4}}",       # March 14, 2026
+    rf"\d{{1,2}}[-/.]{MONTH}[-/.]\d{{2,4}}",                       # 14-Mar-2026
+    rf"{MONTH}[-/.]\d{{1,2}}[-/.]\d{{2,4}}",                       # Mar-14-2026
+    r"\d{4}[-/.]\d{1,2}[-/.]\d{1,2}",                               # 2026-03-14
+    r"\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}",                             # 03/14/2026
 ]
 
 # A value is only accepted if the line it came from carries one of the "any" words for that
-# field and none of the "not" words (so an invoice date cannot be verified as a due date).
+# field and none of the "not" words (so an invoice date cannot be verified as a due date,
+# or a customer reference as an invoice number).
 FIELD_RULES = {
-    "invoice_number": {"any": ["invoice number", "invoice no", "invoice #", "invoice id", "reference"], "not": []},
-    "invoice_date":   {"any": ["invoice date", "bill date", "date of issue", "issued", "dated", "date"],
-                       "not": ["due", "pay", "ship", "order", "delivery"]},
-    "vendor_name":    {"any": ["vendor", "seller", "supplier", "billed by", "from"], "not": []},
-    "due_date":       {"any": ["due", "pay by", "payable by", "payment date"], "not": []},
-    "subtotal":       {"any": ["subtotal", "sub total", "sub-total", "before tax"], "not": []},
-    "tax":            {"any": ["tax", "vat", "gst"], "not": []},
-    "total":          {"any": ["total", "amount due", "amount payable", "balance due"],
-                       "not": ["subtotal", "sub total", "sub-total"]},
+    "invoice_number": {
+        "any": ["invoice number", "invoice no", "invoice #", "invoice id", "invoice ref",
+                "document no", "document number", "doc no", "bill no", "bill number", "reference"],
+        "not": ["customer", "purchase", "po number", "order"],
+    },
+    "invoice_date": {
+        "any": ["invoice date", "bill date", "date of issue", "date issued", "issue date",
+                "issued", "dated", "date"],
+        "not": ["due", "pay", "ship", "order", "delivery", "print"],
+    },
+    "vendor_name": {
+        "any": ["vendor", "seller", "supplier", "billed by", "billed from", "sold by", "issued by", "from"],
+        "not": ["bill to", "billed to", "ship to", "sold to", "customer", "client"],
+    },
+    "due_date": {
+        "any": ["due", "pay by", "payable by", "payment date"],
+        "not": [],
+    },
+    "subtotal": {
+        "any": ["subtotal", "sub total", "sub-total", "net amount", "net total",
+                "taxable amount", "before tax", "excluding tax"],
+        "not": [],
+    },
+    "tax": {
+        "any": ["tax", "vat", "gst"],
+        "not": [],
+    },
+    "total": {
+        "any": ["total", "amount due", "amount payable", "balance due"],
+        "not": ["subtotal", "sub total", "sub-total", "net total", "net amount", "taxable"],
+    },
 }
 
 
@@ -104,3 +129,10 @@ def snap_to_line(value: str, source_text: str) -> str:
         if prefix.endswith(":") or (prefix == "" and ":" not in rest_after):
             return line[idx:].strip()
     return value
+
+
+def clean_answer(value: str, source_text: str) -> str:
+    """A value lives on one line: keep only the first line of the model's answer, then
+    extend it to the end of that line if it was cut short."""
+    first_line = (value or "").split("\n")[0].strip()
+    return snap_to_line(first_line, source_text)

@@ -1,6 +1,6 @@
 from transformers import AutoTokenizer, AutoModelForQuestionAnswering
 import torch
-from app.agents.checks import snap_to_line
+from app.agents.checks import FIELD_RULES, clean_answer
 
 _tokenizer = None
 _model = None
@@ -26,16 +26,8 @@ FIELD_QUESTIONS = {
     "total":          ["What is the total amount due?", "What is the final amount payable?"],
 }
 
-# Words that mark the lines where each field usually lives.
-FIELD_KEYWORDS = {
-    "invoice_number": ["invoice number", "invoice no", "invoice #", "invoice id", "reference"],
-    "invoice_date":   ["invoice date", "bill date", "date of issue", "issued", "dated", "date"],
-    "vendor_name":    ["vendor", "seller", "supplier", "billed by", "from"],
-    "due_date":       ["due", "pay by", "payable by"],
-    "subtotal":       ["subtotal", "sub total", "sub-total", "before tax"],
-    "tax":            ["tax", "vat", "gst"],
-    "total":          ["total", "amount due", "amount payable", "balance due"],
-}
+# Words that mark the lines where each field usually lives (shared with the auditor's label rules).
+FIELD_KEYWORDS = {field: rule["any"] for field, rule in FIELD_RULES.items()}
 
 INVOICE_SCHEMA = {field: questions[0] for field, questions in FIELD_QUESTIONS.items()}
 
@@ -71,7 +63,7 @@ def extract_invoice_fields(source_text: str) -> dict:
     for field, questions in FIELD_QUESTIONS.items():
         try:
             value = _answer_question(tokenizer, model, questions[0], source_text)
-            results[field] = snap_to_line(value, source_text)
+            results[field] = clean_answer(value, source_text)
         except Exception:
             results[field] = ""
     return results
@@ -108,7 +100,7 @@ def candidate_values(field: str, source_text: str, exclude: str = "") -> list[st
     for question in FIELD_QUESTIONS[field]:
         for context in focused + [source_text]:
             try:
-                add(snap_to_line(_answer_question(tokenizer, model, question, context), source_text))
+                add(clean_answer(_answer_question(tokenizer, model, question, context), source_text))
             except Exception:
                 continue
     return candidates

@@ -14,15 +14,15 @@ INVOICES = os.path.join(HERE, DATASET, "invoices")
 
 # Minimum acceptable scores on the development set. A single wrong verified value fails the build.
 BASELINE = {
-    "field_f1": 0.95,
-    "faithfulness": 0.92,
+    "field_f1": 0.99,
+    "faithfulness": 0.99,
     "verified_precision": 1.0,
-    "flag_accuracy": 0.95,
+    "flag_accuracy": 1.0,
     "absent_fields_flagged": 1.0,
 }
 
 
-def predict_all(golden):
+def predict_all(golden, invoices_dir=INVOICES):
     from app.graph.pipeline import pipeline
     from app.agents.ingestion import ingest_invoice, full_text
     from app.agents.retrieval import index_invoice
@@ -33,7 +33,7 @@ def predict_all(golden):
 
     predictions = {}
     for item in golden:
-        pdf = os.path.join(INVOICES, f"{item['doc_id']}.pdf")
+        pdf = os.path.join(invoices_dir, f"{item['doc_id']}.pdf")
         text = full_text(ingest_invoice(pdf))
         index_invoice(item["doc_id"], [text])
         predictions[item["doc_id"]] = pipeline.invoke({"doc_id": item["doc_id"], "source_text": text})
@@ -60,7 +60,7 @@ def run():
     if unverified:
         print(f"\nNot auto-verified ({len(unverified)}):")
         for doc_id, f, r in unverified:
-            why = r.get("reason") or f"language model not convinced (confidence {r.get('confidence')})"
+            why = r.get("reason") or f"language model said {r.get('nli_label')} ({r.get('confidence')})"
             print(f"  {doc_id}  {f}: {predictions[doc_id]['fields'].get(f)!r} -> {why}")
 
     if report["mistakes"]:

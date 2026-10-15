@@ -57,3 +57,29 @@ def test_truncated_answers_are_extended_to_the_end_of_the_line():
 
 def test_a_label_is_not_extended_into_the_value():
     assert snap_to_line("Total Amount Due", "Total Amount Due: $4536.00") == "Total Amount Due"
+
+
+def test_more_date_formats():
+    for d in ["14-Mar-2026", "14th March 2026", "Mar-14-2026", "31.03.2026"]:
+        assert looks_like_date(d), d
+
+
+def test_more_label_wordings():
+    assert labelled_evidence("subtotal", evidence_for("$3,200.00", "Net Amount: $3,200.00")) != []
+    doc_no = "Document No\nDOC-5521"
+    assert labelled_evidence("invoice_number", evidence_for("DOC-5521", doc_no)) != []
+    assert labelled_evidence("total", evidence_for("$3,200.00", "Net Total: $3,200.00")) == []
+
+
+def test_a_print_date_is_not_the_invoice_date():
+    assert labelled_evidence("invoice_date", evidence_for("November 6, 2026", "Date Printed: November 6, 2026")) == []
+
+
+def test_a_customer_reference_is_not_the_invoice_number():
+    assert labelled_evidence("invoice_number", evidence_for("CR-4419", "Customer Reference: CR-4419")) == []
+
+
+def test_an_answer_that_spans_lines_is_cut_to_its_first_line():
+    from app.agents.checks import clean_answer
+    text = "Invoice Date: August 3, 2026\nVendor: Lumen Design Studio"
+    assert clean_answer("August 3, 2026\nVendor: Lumen Design Studio", text) == "August 3, 2026"

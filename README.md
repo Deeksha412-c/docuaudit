@@ -1,150 +1,173 @@
-# \# DocuAudit — Invoice Edition
+# DocuAudit — Invoice Edition
 
-# 
+![CI](https://github.com/Deeksha412-c/docuaudit/actions/workflows/ci.yml/badge.svg)
 
-# A multi-agent pipeline that extracts structured data from native-text invoice PDFs, checks it against compliance rules, and independently verifies every extracted field against its source line before returning it.
+A multi-agent pipeline that extracts structured data from native-text invoice PDFs and does not trust its own output. Every extracted field is checked against the line it came from before it is accepted, and anything that cannot be verified goes to a review queue instead of being passed on as fact.
 
-# 
+## Why
 
-# \## Why this exists
+Single-model document pipelines can answer questions about a document, but they can also hallucinate, and they give you no way to trace an answer back to the page. DocuAudit separates **extraction** from **verification**: one stage extracts, a different stage checks each field against its source line. Every field in the output carries its evidence, and the system is measured on whether wrong values get through, not just on whether values are right.
 
-# 
+## How it works
 
-# Single-LLM document pipelines can hallucinate, and they give you no way to trace an answer back to the page. DocuAudit separates \*\*extraction\*\* from \*\*verification\*\*: one agent extracts, a different agent checks each field against the exact line of text that should support it. Every field in the output carries its evidence.
+```
+upload ─► ingestion ─► retrieval ─► extraction ─► compliance ─► audit ─┬─► complete
+                                                      ▲                │
+                                                      └── repair ◄─────┤  unverified fields (one round)
+                                                                       └─► needs_review  (still unverified)
+```
 
-# 
+An upload returns immediately with a `doc_id` and status `pending`. A background worker runs the pipeline and the client polls for the result.
 
-# \## How it works
+| Stage | What it does |
+|---|---|
+| Ingestion | Reads the PDF text with PyMuPDF |
+| Retrieval | Embeds the text (`bge-small-en-v1.5`) and stores and retrieves it in Qdrant |
+| Extraction | Fills a fixed invoice schema (invoice number, date, vendor, due date, subtotal, tax, total) with extractive QA (`roberta-base-squad2`); answers are kept to one line and extended to the end of that line if cut short |
+| Compliance | PII detection (`bert-base-NER`) plus rules: subtotal + tax must equal the total, an amount threshold, and duplicate invoice numbers for the same vendor, checked against earlier invoices in PostgreSQL |
+| Audit | Verifies each field (see below) |
+| Repair | For fields the audit rejected, tries other phrasings of the question and the text after a colon or on the next line. A replacement is kept only if it passes the audit. Compliance and the audit then run again |
 
-# 
+A document is `needs_review` if any field is still unverified, for example when an invoice has no due date.
 
-# ```
+### The audit
 
-# Upload PDF → FastAPI → Celery worker → LangGraph pipeline → PostgreSQL
+A field is verified only if it passes every check:
 
-# &#x20;                                         │
+1. **Type.** A date field holds a date, an amount field holds an amount, an invoice number contains a digit, and a vendor is not just a label word.
+2. **Label.** The line the value came from (plus the label on the line before it, for two-column layouts) must carry the right label for that field and none that conflicts with it. An invoice date cannot be verified as a due date, a subtotal cannot be verified as a total, a print date cannot be verified as an invoice date, and a customer reference cannot be verified as an invoice number.
+3. **Language model.** A cross-encoder NLI model (`nli-deberta-v3-base`) checks the labelled line against a plain-English claim such as "The vendor is Acme Ltd." The mode is set with `DOCUAUDIT_NLI_MODE`:
+   - `veto` (default): reject only on a clear contradiction
+   - `strict`: require clear support
+   - `off`: rules only
 
-# &#x20;             Ingestion → Retrieval → Extraction → Compliance → Auditor
-
-# ```
-
-# 
-
-# | Agent | Job |
-
-# |---|---|
-
-# | Ingestion | Reads the PDF text (PyMuPDF) |
-
-# | Retrieval | Embeds the text (bge-small) and stores/retrieves it in Qdrant |
-
-# | Extraction | Fills a fixed invoice schema using extractive QA (RoBERTa-SQuAD2) |
-
-# | Compliance | PII detection (BERT-NER) plus rules: totals must reconcile, amount threshold, and duplicate invoice numbers (same vendor, checked against previously processed invoices in PostgreSQL) |
-
-# | Auditor | Checks each field against its source line with an NLI model (DeBERTa); unsupported fields are flagged | "Unsupported fields get one repair attempt (alternative questions, focused lines). Anything still unverified sends the document to needs_review."
-
- 
-
-#Uploads return immediately with a `doc\_id`. Processing runs in a background worker, and the client polls for the result.
-
-
+The rules run before the model because the first evaluation showed the model alone verified wrong values (see Results).
 
 ## Results
 
-Evaluated on 17 hand-labelled invoices: varied label wording and date formats, two-column layouts, two invoices with no due date, and two compliance cases.
+The evaluation set is 27 invoices with hand-labelled values, including two-column layouts, varied label wording and date and amount formats, invoices with no due date, and compliance cases (an over-threshold amount, a total that does not add up). The PDFs are synthetic, generated with a script.
 
-| Metric | First run | After auditor fixes |
+`verified precision` is the number that matters most: of the values the system verified, how many were correct.
+
+### 1. First evaluation, then fixes (17 invoices)
+
+| Metric | First run | After fixes |
 |---|---|---|
 | Field F1 | 0.903 | 1.000 |
-| Verified precision (verified values that were correct) | 0.877 | 1.000 |
-| Faithfulness (fields auto-verified) | 0.957 | 0.957 |
+| Verified precision | 0.877 | 1.000 |
+| Fields auto-verified | 0.957 | 0.957 |
 | Compliance flag accuracy | 0.882 | 1.000 |
-| Missing fields correctly refused | 0 of 2 | 2 of 2 |
+| Missing fields refused | 0 of 2 | 2 of 2 |
 
-The first run showed the auditor verifying 14 wrong values (labels extracted as values, an amount accepted as a date, an invoice date accepted as a due date). I added type and label checks ahead of the language-model check, and the regression gate now fails if any wrong value is verified.
+The first run showed the audit verifying 14 wrong values: labels extracted as values in two-column layouts, an amount accepted as a date, an invoice date accepted as a due date, and a truncated vendor name. The type and label checks and the layout-aware repair fixed these.
 
-These fixes were made after seeing these invoices, so this is a development-set result, not a measure of generalization.
+### 2. Held-out test (10 unseen invoices, code frozen beforehand)
 
-# Measured on a small synthetic set of 5 invoices that share one layout. Treat this as a regression baseline, not a claim about real-world accuracy. The evaluation harness fails the build if F1 drops below 0.80 or faithfulness below 0.85.
+| Metric | Score |
+|---|---|
+| Field F1 | 0.986 |
+| Verified precision | 1.000 |
+| Fields auto-verified | 0.913 |
+| Compliance flag accuracy | 1.000 |
+| Missing fields refused | 1 of 1 |
+| Invoices sent to review | 4 of 10 |
 
-# 
+No wrong value was verified. The one extraction error (a "Document No" label, where the model returned the vendor name) was rejected by the audit. The invoices sent to review were caused by label wordings and a date format the rules did not yet know, plus occasional rejections by the language model. I then fixed those and moved the 10 invoices into the 27-invoice evaluation set, so they are no longer held out.
 
-# \## Run it
+### 3. Does the language-model check help? (27 invoices)
 
-# 
+| Mode | Field F1 | Fields auto-verified | Verified precision | Invoices sent to review |
+|---|---|---|---|---|
+| strict | 0.995 | 0.952 | 1.000 | 7 of 27 |
+| veto | 1.000 | 1.000 | 1.000 | 3 of 27 |
+| off (rules only) | 1.000 | 1.000 | 1.000 | 3 of 27 |
 
-# Requires Docker Desktop.
+The model never changed an outcome in veto mode. In strict mode it declined 8 correct values, sent 4 extra invoices to review and blocked one correct repair, with no gain in precision. The default is therefore `veto`. The 3 invoices still reviewed are the ones with no due date, which is intended.
 
-# 
+### Current state
 
-# ```bash
+With the default settings, all five metrics are 1.0 on the 27 invoices. A regression gate (`evaluation/run_eval.py`) fails if any wrong value is verified or accuracy drops.
 
-# docker compose up --build -d
+**Read these numbers with care.** The set is small (186 labelled values), synthetic, and the rules were written after seeing failures on it, so 1.0 is a development-set result, not a measure of accuracy on real invoices. The held-out run above, made before those fixes, is the better estimate of generalisation. It also means the comparison in section 3 probably understates what the language model could catch on failure modes I have not seen.
 
-# ```
+## Run it
 
-# 
+Requires Docker Desktop.
 
-# \- API docs: http://localhost:8000/docs
+```bash
+git clone https://github.com/Deeksha412-c/docuaudit.git
+cd docuaudit
+docker compose up --build -d
+```
 
-# \- UI: `cd frontend \&\& streamlit run app.py`
+The first build takes a while, and the first upload downloads the models (about 2 GB, cached afterwards).
 
-# \- Evaluation: `python evaluation/run\_eval.py`
+- API docs: http://localhost:8000/docs
+- UI: `cd frontend && streamlit run app.py`
 
-# \- Tests: `pytest tests/`
+To run the tests and the evaluation outside Docker you need Python 3.11:
 
-# 
+```bash
+python -m venv venv
+venv\Scripts\activate          # macOS/Linux: source venv/bin/activate
+pip install -r backend/requirements.txt
+cp backend/.env.example backend/.env
+docker compose up -d postgres redis qdrant
 
-# \## API
+pytest tests/
+python evaluation/run_eval.py                   # the 27 invoices, with the regression gate
+python evaluation/compare_modes.py              # language-model modes side by side
+```
 
-# 
+## API
 
-# | Method | Path | Purpose |
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/documents` | Upload a PDF; returns `doc_id` and status `pending` |
+| GET | `/documents/{doc_id}` | Status (`pending`, `processing`, `complete`, `needs_review`, `failed`), extracted fields, compliance flags, and per-field audit with evidence |
+| GET | `/documents` | List all documents |
+| GET | `/health` | Liveness check |
 
-# |---|---|---|
+## Design decisions
 
-# | POST | `/documents` | Upload a PDF; returns `doc\_id` and status `pending` |
+- **Verification is separate from extraction.** Checking each field against its own source line, with the evidence returned, makes wrong values visible instead of buried in a score.
+- **Rules before the model.** Deterministic checks are fast, testable and explainable, and in the evaluation they carried the safety.
+- **The default came from an experiment.** The language-model mode was chosen by an ablation, not by assumption.
+- **Repair once, accept only verified candidates.** Re-running the same question on the same text gives the same answer, so the repair changes the question and the context.
+- **Async processing.** The pipeline chains several model calls, which would block a request. The API and the worker share an uploads volume, and the file path is stored with each document.
+- **A fixed schema.** Invoices are structurally regular, so a fixed schema is easier to test and grade than open-ended QA.
+- **A gate on the safety metric.** One wrong verified value fails the evaluation.
 
-# | GET | `/documents/{doc\_id}` | Status, extracted fields, compliance flags, per-field audit with evidence | the status is one of pending, processing, complete, needs_review or failed.
+## Scope
 
-# | GET | `/documents` | List all documents |
+This started as a broader proposal covering scanned and table-heavy documents, vision-language OCR, layout-aware retrieval and reranking. I narrowed it to native-text invoices so I could build one thing properly and measure it. The architecture carries over to other document types by swapping the extraction schema and the label rules.
 
-# 
+## Limitations and next steps
 
-# \## Design decisions
+- Native-text PDFs only: no OCR, scans or tables.
+- The evaluation set is small and synthetic, and the rules were written after seeing failures on it. The next step is a fresh held-out set, including failures the rules do not list.
+- The label check assumes labelled fields. A vendor name printed as an unlabelled heading is sent to review.
+- The extracted-fields table still shows the model's value for a field it could not verify (for example a guessed due date) next to the warning.
+- The review queue is a list: there is no way yet to correct a field and approve a document.
+- The duplicate lookup scans stored results in Python, which is fine at this scale. At larger volumes it should be an indexed query.
+- CI runs the unit tests. The evaluation gate runs locally because it needs Qdrant and model downloads.
+- Retrieval is trivial for one-page invoices. It matters more for longer documents.
 
-# 
+## Stack
 
-# \- \*\*Per-field verification, not one document-level score.\*\* A single "grounded: yes/no" hides which field is wrong. Each field is checked against only the lines that contain its value, which also catches wrong-field mistakes.
+Python 3.11 · FastAPI · Celery + Redis · LangGraph · Hugging Face Transformers · Qdrant · PostgreSQL · Streamlit · Docker Compose · GitHub Actions
 
-# \- \*\*Fixed schema over open-ended QA.\*\* Invoices are structurally regular, so a fixed schema is easier to test and grade.
+## Repository layout
 
-# \- \*\*Async processing.\*\* The pipeline chains several model calls, which would block a request/response cycle.
-
-# \- \*\*Shared upload volume.\*\* API and worker run in separate containers, so uploads land in a shared volume and the path is stored with the document.
-
-# \- \*\*Deliberate scope.\*\* Native-text invoices only. OCR, table QA and layout-aware retrieval were left out on purpose; they matter for scanned documents.
-
-# \- \*\**Duplicates are keyed on vendor plus invoice number.** Different vendors can reuse the same number, so the number alone would give false alarms.
-
-# 
-
-## Limitations and roadmap
-
-- The evaluation set is small and synthetic; harder layouts and label variations are next.
-- The duplicate lookup scans stored results in Python, which is fine at this scale. At larger volumes it should become an indexed database query.
-- The review queue is a list. There's no way yet to correct a field and approve a document.
-- Retrieval is trivial for one-page invoices; it matters more for longer documents.
-- About 4% of correct values (5 of 117) are not auto-verified and go to review.
-- The label check assumes labelled fields; a vendor printed as an unlabelled heading goes to review.
-- The next step is a held-out set the code has never seen.
-
-# 
-
-# \## Stack
-
-# 
-
-# Python 3.11 · FastAPI · Celery + Redis · LangGraph · Hugging Face Transformers · Qdrant · PostgreSQL · Streamlit · Docker Compose · GitHub Actions
-
+```
+backend/app/
+  api/            FastAPI routes
+  agents/         ingestion, retrieval, extraction, compliance, auditor, checks (rule-based)
+  graph/          LangGraph pipeline with the repair loop
+  db/             models, session, duplicate lookup
+  workers/        Celery app and task
+evaluation/       metrics, run_eval.py, compare_modes.py, golden_dataset/
+frontend/         Streamlit UI
+tests/            unit tests
+docker-compose.yml
+```
