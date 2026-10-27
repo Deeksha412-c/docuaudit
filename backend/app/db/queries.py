@@ -7,16 +7,21 @@ def _norm(s) -> str:
 
 
 def previously_seen_invoice_numbers(db: Session, doc_id: str, fields: dict) -> set[str]:
-    """Invoice numbers already processed for the same vendor, excluding this document."""
+    """Invoice numbers already processed for the same vendor, for the same user, excluding this document."""
     vendor = _norm(fields.get("vendor_name"))
     if not vendor:
         return set()
+
+    current = db.query(Document).filter(Document.id == doc_id).first()
+    owner = current.user_id if current else None
+    same_owner = Document.user_id.is_(None) if owner is None else Document.user_id == owner
 
     rows = (
         db.query(ExtractionResult)
         .join(Document, Document.id == ExtractionResult.doc_id)
         .filter(ExtractionResult.doc_id != doc_id)
         .filter(Document.status.in_([DocStatus.complete, DocStatus.needs_review]))
+        .filter(same_owner)
         .all()
     )
 

@@ -17,8 +17,8 @@ def db():
     session.close()
 
 
-def add_doc(db, doc_id, fields, status=DocStatus.complete):
-    db.add(Document(id=doc_id, filename=f"{doc_id}.pdf", file_path="x", status=status))
+def add_doc(db, doc_id, fields, status=DocStatus.complete, user_id=None):
+    db.add(Document(id=doc_id, filename=f"{doc_id}.pdf", file_path="x", status=status, user_id=user_id))
     db.add(ExtractionResult(doc_id=doc_id, fields=fields))
     db.commit()
 
@@ -45,11 +45,25 @@ def test_failed_documents_are_ignored(db):
     assert previously_seen_invoice_numbers(db, "b", {"vendor_name": "Acme"}) == set()
 
 
+def test_documents_waiting_for_review_still_count(db):
+    add_doc(db, "a", {"invoice_number": "INV-1", "vendor_name": "Acme"}, status=DocStatus.needs_review)
+    assert "INV-1" in previously_seen_invoice_numbers(db, "b", {"vendor_name": "Acme"})
+
+
 def test_missing_vendor_returns_empty(db):
     add_doc(db, "a", {"invoice_number": "INV-1", "vendor_name": "Acme"})
     assert previously_seen_invoice_numbers(db, "b", {"vendor_name": ""}) == set()
 
 
-def test_documents_waiting_for_review_still_count(db):
-    add_doc(db, "a", {"invoice_number": "INV-1", "vendor_name": "Acme"}, status=DocStatus.needs_review)
-    assert "INV-1" in previously_seen_invoice_numbers(db, "b", {"vendor_name": "Acme"})
+def test_the_same_user_sees_their_earlier_invoices(db):
+    add_doc(db, "a", {"invoice_number": "INV-1", "vendor_name": "Acme"}, user_id="u1")
+    db.add(Document(id="cur", filename="cur.pdf", file_path="x", status=DocStatus.processing, user_id="u1"))
+    db.commit()
+    assert "INV-1" in previously_seen_invoice_numbers(db, "cur", {"vendor_name": "Acme"})
+
+
+def test_another_users_invoices_are_never_duplicates(db):
+    add_doc(db, "a", {"invoice_number": "INV-1", "vendor_name": "Acme"}, user_id="u1")
+    db.add(Document(id="cur", filename="cur.pdf", file_path="x", status=DocStatus.processing, user_id="u2"))
+    db.commit()
+    assert previously_seen_invoice_numbers(db, "cur", {"vendor_name": "Acme"}) == set()

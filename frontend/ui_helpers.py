@@ -52,6 +52,11 @@ def risk_pill(level):
     return ("High risk", "bad") if level == "high" else ("Low risk", "ok")
 
 
+def format_time(iso):
+    """'2026-10-20T14:03:11.123' -> '2026-10-20 14:03'."""
+    return str(iso)[:16].replace("T", " ") if iso else ""
+
+
 def flag_label(flag):
     return FLAG_LABELS.get(flag, str(flag).replace("_", " ").capitalize())
 

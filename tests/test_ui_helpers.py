@@ -80,3 +80,9 @@ def test_an_unverified_value_elsewhere_is_still_marked():
     found = {"invoice_date": (0, pymupdf.Rect(10, 10, 80, 22)), "tax": (0, pymupdf.Rect(10, 100, 60, 112))}
     plan = highlight_plan(found, {"invoice_date": True, "tax": False})
     assert sorted(color for _, _, color in plan) == sorted([GREEN, AMBER])
+
+
+def test_times_are_shown_without_seconds():
+    from ui_helpers import format_time
+    assert format_time("2026-10-20T14:03:11.123456") == "2026-10-20 14:03"
+    assert format_time(None) == ""
