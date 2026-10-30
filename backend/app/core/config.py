@@ -1,5 +1,5 @@
 from pathlib import Path
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # backend/.env, found relative to this file rather than the current folder
 ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
@@ -13,9 +13,7 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "./data/uploads"
     DOCUAUDIT_SECRET: str = ""      # signs login tokens; the API refuses to start without it
 
-    class Config:
-        env_file = str(ENV_FILE)
-        extra = "ignore"
+    model_config = SettingsConfigDict(env_file=str(ENV_FILE), extra="ignore")
 
 
 settings = Settings()

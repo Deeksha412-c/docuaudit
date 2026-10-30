@@ -38,6 +38,7 @@ services:
       QDRANT_HOST: qdrant
       QDRANT_PORT: "6333"
       UPLOAD_DIR: /app/data/uploads
+      DOCUAUDIT_SECRET: ${DOCUAUDIT_SECRET:?Set DOCUAUDIT_SECRET in .env}
     volumes:
       - ./data/uploads:/app/data/uploads
       - hf_cache:/root/.cache/huggingface

@@ -4,7 +4,7 @@ UPLOADS = tempfile.mkdtemp()
 os.environ["DATABASE_URL"] = "sqlite://"            # never touch the real database in tests
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ["UPLOAD_DIR"] = UPLOADS
-os.environ["DOCUAUDIT_SECRET"] = "a-secret-used-only-in-the-tests"
+os.environ["DOCUAUDIT_SECRET"] = "a-secret-used-only-in-the-tests-0123456789"
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "backend"))
 
 # the real task module would load the models; here only the call that queues a job matters

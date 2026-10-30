@@ -2,7 +2,7 @@
 
 ![CI](https://github.com/Deeksha412-c/docuaudit/actions/workflows/ci.yml/badge.svg)
 
-A multi-agent pipeline that extracts structured data from native-text invoice PDFs and does not trust its own output. Every extracted field is checked against the line it came from before it is accepted, and anything that cannot be verified goes to a review queue instead of being passed on as fact.
+A multi-agent pipeline that extracts structured data from native-text invoice PDFs and does not trust its own output. Every extracted field is checked against the line it came from before it is accepted, and anything that cannot be verified goes to a review queue instead of being passed on as fact. Each user has their own account and sees only their own invoices.
 
 ## Why
 
@@ -19,12 +19,15 @@ upload ─► ingestion ─► retrieval ─► extraction ─► compliance ─
 
 An upload returns immediately with a `doc_id` and status `pending`. A background worker runs the pipeline and the client polls for the result.
 
+![A verified invoice](docs/ui-verified.png)
+![An invoice sent to review](docs/ui-needs-review.png)
+
 | Stage | What it does |
 |---|---|
 | Ingestion | Reads the PDF text with PyMuPDF |
 | Retrieval | Embeds the text (`bge-small-en-v1.5`) and stores and retrieves it in Qdrant |
 | Extraction | Fills a fixed invoice schema (invoice number, date, vendor, due date, subtotal, tax, total) with extractive QA (`roberta-base-squad2`); answers are kept to one line and extended to the end of that line if cut short |
-| Compliance | PII detection (`bert-base-NER`) plus rules: subtotal + tax must equal the total, an amount threshold, and duplicate invoice numbers for the same vendor, checked against earlier invoices in PostgreSQL |
+| Compliance | PII detection (`bert-base-NER`) plus rules: subtotal + tax must equal the total, an amount threshold, and duplicate invoice numbers for the same vendor, checked against the same user's earlier invoices in PostgreSQL |
 | Audit | Verifies each field (see below) |
 | Repair | For fields the audit rejected, tries other phrasings of the question and the text after a colon or on the next line. A replacement is kept only if it passes the audit. Compliance and the audit then run again |
 
@@ -42,6 +45,10 @@ A field is verified only if it passes every check:
    - `off`: rules only
 
 The rules run before the model because the first evaluation showed the model alone verified wrong values (see Results).
+
+### The interface
+
+A Streamlit app with a sign-in and create-account page. Once signed in you can upload an invoice and see summary cards (status, fields verified, risk, flags), the invoice with each value highlighted (green if verified, amber if not), the extracted fields with a plain-language reason for anything unverified, the evidence line for each field, the compliance flags, a review queue, and your history with an Open button on each past invoice.
 
 ## Results
 
@@ -92,26 +99,30 @@ With the default settings, all five metrics are 1.0 on the 27 invoices. A regres
 
 ## Run it
 
-Requires Docker Desktop.
+Requires Docker Desktop and Python 3.11.
 
 ```bash
 git clone https://github.com/Deeksha412-c/docuaudit.git
 cd docuaudit
+
+# create the .env file with a random secret that signs login tokens
+python -c "import secrets; open('.env','w').write('DOCUAUDIT_SECRET=' + secrets.token_hex(32) + '\n')"
+
 docker compose up --build -d
 ```
 
-The first build takes a while, and the first upload downloads the models (about 2 GB, cached afterwards).
+The first build takes a while, and the first upload downloads the models (about 2 GB, cached afterwards). Never commit `.env`.
 
-- API docs: http://localhost:8000/docs
-- UI: `cd frontend && streamlit run app.py`
+- API docs: http://localhost:8000/docs (use **Authorize** and sign in with your email and password)
+- UI: `cd frontend && streamlit run app.py`, then create an account
 
-To run the tests and the evaluation outside Docker you need Python 3.11:
+To run the tests and the evaluation outside Docker:
 
 ```bash
 python -m venv venv
 venv\Scripts\activate          # macOS/Linux: source venv/bin/activate
 pip install -r backend/requirements.txt
-cp backend/.env.example backend/.env
+cp backend/.env.example backend/.env       # then put the same DOCUAUDIT_SECRET in it
 docker compose up -d postgres redis qdrant
 
 pytest tests/
@@ -121,12 +132,18 @@ python evaluation/compare_modes.py              # language-model modes side by s
 
 ## API
 
+Every `/documents` route needs a token, and each user only sees their own documents.
+
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/documents` | Upload a PDF; returns `doc_id` and status `pending` |
+| POST | `/auth/signup` | Create an account; returns a token |
+| POST | `/auth/login` | Sign in (form fields `username` = your email, and `password`); returns a token |
+| GET | `/auth/me` | The signed-in user |
+| POST | `/documents` | Upload a PDF (PDF only, 10 MB at most); returns `doc_id` and status `pending` |
 | GET | `/documents/{doc_id}` | Status (`pending`, `processing`, `complete`, `needs_review`, `failed`), extracted fields, compliance flags, and per-field audit with evidence |
-| GET | `/documents` | List all documents |
-| GET | `/health` | Liveness check |
+| GET | `/documents/{doc_id}/file` | Download the original PDF |
+| GET | `/documents` | List your documents |
+| GET | `/health` | Liveness check (public) |
 
 ## Design decisions
 
@@ -137,6 +154,7 @@ python evaluation/compare_modes.py              # language-model modes side by s
 - **Async processing.** The pipeline chains several model calls, which would block a request. The API and the worker share an uploads volume, and the file path is stored with each document.
 - **A fixed schema.** Invoices are structurally regular, so a fixed schema is easier to test and grade than open-ended QA.
 - **A gate on the safety metric.** One wrong verified value fails the evaluation.
+- **Accounts with per-user data.** Passwords are hashed with Argon2, login tokens are signed and expire after 8 hours, every document belongs to its owner (anyone else gets a 404), and duplicate detection only compares a user's own invoices. Uploads are checked: PDF only, a size limit, and file names are sanitised so they cannot write outside the uploads folder.
 
 ## Scope
 
@@ -145,10 +163,11 @@ This started as a broader proposal covering scanned and table-heavy documents, v
 ## Limitations and next steps
 
 - Native-text PDFs only: no OCR, scans or tables.
-- The evaluation set is small and synthetic, and the rules were written after seeing failures on it. The next step is a fresh held-out set, including failures the rules do not list.
+- The evaluation set is small and synthetic, and the rules were written after seeing failures on it. The next step is a fresh held-out set, including failures the rules do not list, and tests on real invoices.
 - The label check assumes labelled fields. A vendor name printed as an unlabelled heading is sent to review.
-- The extracted-fields table still shows the model's value for a field it could not verify (for example a guessed due date) next to the warning.
+- The interface marks fields it could not verify and shows the model's guess only as small grey text, but the API still returns the guess.
 - The review queue is a list: there is no way yet to correct a field and approve a document.
+- Accounts are basic: no password reset, no email verification, no rate limiting on sign-in, no HTTPS in the local setup, and tokens cannot be revoked before they expire. Refreshing the page signs you out, because Streamlit keeps the session in the browser tab.
 - The duplicate lookup scans stored results in Python, which is fine at this scale. At larger volumes it should be an indexed query.
 - CI runs the unit tests. The evaluation gate runs locally because it needs Qdrant and model downloads.
 - Retrieval is trivial for one-page invoices. It matters more for longer documents.
@@ -161,16 +180,14 @@ Python 3.11 · FastAPI · Celery + Redis · LangGraph · Hugging Face Transforme
 
 ```
 backend/app/
-  api/            FastAPI routes
+  api/            FastAPI routes: auth and documents
   agents/         ingestion, retrieval, extraction, compliance, auditor, checks (rule-based)
   graph/          LangGraph pipeline with the repair loop
+  core/           settings and security (password hashing, tokens)
   db/             models, session, duplicate lookup
   workers/        Celery app and task
 evaluation/       metrics, run_eval.py, compare_modes.py, golden_dataset/
-frontend/         Streamlit UI
-tests/            unit tests
+frontend/         Streamlit UI: app.py, api_client.py, ui_helpers.py
+tests/            unit tests, including accounts and access control
 docker-compose.yml
 ```
-
-![A verified invoice](docs/ui-verified.jpeg)
-![An invoice sent to review](docs/ui-needs-review.jpeg)

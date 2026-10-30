@@ -3,7 +3,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "..", "backend"))
 
 from app.core.security import create_token, decode_token, hash_password, verify_password
 
-SECRET = "a-secret-used-only-in-the-tests"
+SECRET = "a-secret-used-only-in-the-tests-0123456789"
 
 
 def test_a_password_is_hashed_and_verified():
@@ -30,7 +30,7 @@ def test_an_expired_token_is_rejected():
 
 
 def test_a_token_signed_with_another_secret_is_rejected():
-    assert decode_token(create_token("user-1", "some-other-secret-value"), SECRET) is None
+    assert decode_token(create_token("user-1", "some-other-secret-value-0123456789abcdef"), SECRET) is None
 
 
 def test_a_tampered_token_is_rejected():
